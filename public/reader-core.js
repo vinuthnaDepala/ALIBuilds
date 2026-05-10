@@ -181,6 +181,50 @@
     return Math.max(700, Math.round((words / Math.max(80, wpm)) * 60000));
   }
 
+  function getWords(text) {
+    return String(text || "").toLowerCase().match(/[a-z][a-z'-]*/g) || [];
+  }
+
+  function countSyllables(word) {
+    const normalized = String(word || "").toLowerCase().replace(/[^a-z]/g, "");
+    if (!normalized) return 0;
+    const trimmed = normalized.replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, "");
+    const groups = trimmed.match(/[aeiouy]{1,2}/g);
+    return Math.max(1, groups?.length || 1);
+  }
+
+  function estimateTextComplexity(text) {
+    const sentences = splitIntoSentences(String(text || ""));
+    const words = getWords(text);
+    const uniqueWords = new Set(words);
+    const wordCount = words.length;
+    const sentenceCount = Math.max(1, sentences.length);
+    const totalCharacters = words.reduce((sum, word) => sum + word.length, 0);
+    const totalSyllables = words.reduce((sum, word) => sum + countSyllables(word), 0);
+    const complexWords = words.filter((word) => word.length >= 8 || countSyllables(word) >= 3);
+    const avgSentenceWords = wordCount / sentenceCount;
+    const avgWordLength = wordCount ? totalCharacters / wordCount : 0;
+    const complexWordPercent = wordCount ? (complexWords.length / wordCount) * 100 : 0;
+    const typeTokenRatio = wordCount ? uniqueWords.size / wordCount : 0;
+    const fleschKincaidGrade = wordCount
+      ? Math.max(0, (0.39 * avgSentenceWords) + (11.8 * (totalSyllables / wordCount)) - 15.59)
+      : 0;
+    const estimatedLexile = Math.round(Math.max(0, (fleschKincaidGrade * 115) + 180 + (complexWordPercent * 3)));
+    const estimatedVocabularySize = Math.round(uniqueWords.size * (1 + typeTokenRatio) * 85);
+
+    return {
+      wordCount,
+      sentenceCount,
+      uniqueWordCount: uniqueWords.size,
+      avgSentenceWords,
+      avgWordLength,
+      complexWordPercent,
+      fleschKincaidGrade,
+      estimatedLexile,
+      estimatedVocabularySize
+    };
+  }
+
   function extractKeywords(text) {
     return (text.toLowerCase().match(/[a-z][a-z'-]{2,}/g) || [])
       .filter((word) => !STOP_WORDS.has(word))
@@ -231,6 +275,7 @@
     CURATED_EMOJIS,
     chunkSentence,
     emphasizeText,
+    estimateTextComplexity,
     extractKeywords,
     findCuratedEmoji,
     getEstimatedMs,

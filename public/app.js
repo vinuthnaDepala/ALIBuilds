@@ -7,20 +7,26 @@ const state = {
   completedAt: null,
   cameraStream: null,
   ocrLoadPromise: null,
+  rawText: "",
+  textStats: null,
+  actualWpm: 0,
   settings: {
     wpm: 300,
     fontSize: 56,
     chunkSize: "medium",
     focusBoldingEnabled: true,
     emojiEnabled: true,
+    comparisonEnabled: true,
     dyslexiaFriendlyFont: false,
     readAloud: false,
-    theme: "light"
+    theme: "light",
+    grade: "5"
   },
   emojiApiCache: new Map()
 };
 
 const sampleText = "The Magna Carta was signed in 1215 after English nobles challenged the king's power. It mattered because it suggested that even rulers should follow the law. Later, people used its ideas to argue for rights, fair trials, and limits on government authority.";
+const READ_ALOUD_MAX_WPM = 190;
 
 const elements = {
   setupView: document.querySelector("#setupView"),
@@ -35,11 +41,14 @@ const elements = {
   wpmInput: document.querySelector("#wpmInput"),
   readerWpmInput: document.querySelector("#readerWpmInput"),
   wpmOutput: document.querySelector("#wpmOutput"),
+  gradeInput: document.querySelector("#gradeInput"),
   fontInput: document.querySelector("#fontInput"),
   fontOutput: document.querySelector("#fontOutput"),
   boldingInput: document.querySelector("#boldingInput"),
   readerBoldingInput: document.querySelector("#readerBoldingInput"),
   emojiInput: document.querySelector("#emojiInput"),
+  comparisonInput: document.querySelector("#comparisonInput"),
+  comparisonSettings: document.querySelector("#comparisonSettings"),
   readerEmojiInput: document.querySelector("#readerEmojiInput"),
   dyslexiaInput: document.querySelector("#dyslexiaInput"),
   readAloudInput: document.querySelector("#readAloudInput"),
@@ -61,7 +70,8 @@ const elements = {
   nextButton: document.querySelector("#nextButton"),
   emojiStatus: document.querySelector("#emojiStatus"),
   focusStage: document.querySelector("#focusStage"),
-  completionSummary: document.querySelector("#completionSummary")
+  completionSummary: document.querySelector("#completionSummary"),
+  comparisonPanel: document.querySelector("#comparisonPanel")
 };
 
 function selectedValue(name) {
@@ -71,10 +81,12 @@ function selectedValue(name) {
 function syncSettingsFromControls() {
   state.settings.wpm = Number(elements.wpmInput.value);
   state.settings.fontSize = Number(elements.fontInput.value);
+  state.settings.grade = elements.gradeInput.value;
   state.settings.chunkSize = selectedValue("chunkSize") || "medium";
   state.settings.theme = selectedValue("theme") || "light";
   state.settings.focusBoldingEnabled = elements.boldingInput.checked;
   state.settings.emojiEnabled = elements.emojiInput.checked;
+  state.settings.comparisonEnabled = elements.comparisonInput.checked;
   state.settings.dyslexiaFriendlyFont = elements.dyslexiaInput.checked;
   state.settings.readAloud = elements.readAloudInput.checked;
   applySettings();
@@ -87,12 +99,25 @@ function syncReaderControlsToSettings() {
 }
 
 function applySettings() {
+  const readAloudAvailable = state.settings.wpm <= READ_ALOUD_MAX_WPM;
+  if (!readAloudAvailable) {
+    state.settings.readAloud = false;
+    elements.readAloudInput.checked = false;
+    stopSpeech();
+  }
+
   elements.wpmOutput.value = `${state.settings.wpm} WPM`;
   elements.fontOutput.value = `${state.settings.fontSize} px`;
   elements.readerWpmInput.value = String(state.settings.wpm);
+  elements.readAloudInput.disabled = !readAloudAvailable;
+  elements.readAloudInput.closest(".toggle").classList.toggle("disabled", !readAloudAvailable);
+  elements.readAloudInput.closest(".toggle").title = readAloudAvailable
+    ? ""
+    : `Read aloud is available up to ${READ_ALOUD_MAX_WPM} WPM.`;
   document.body.classList.toggle("theme-dark", state.settings.theme === "dark");
   document.body.classList.toggle("theme-highContrast", state.settings.theme === "highContrast");
   document.body.classList.toggle("dyslexia-font", state.settings.dyslexiaFriendlyFont);
+  elements.comparisonSettings.classList.toggle("hidden", !state.settings.comparisonEnabled);
   document.documentElement.style.setProperty("--reader-font-size", `${state.settings.fontSize}px`);
 }
 
@@ -110,10 +135,10 @@ function clearTimer() {
 }
 
 function speak(text) {
-  if (!state.settings.readAloud || !("speechSynthesis" in window)) return;
+  if (!state.settings.readAloud || state.settings.wpm > READ_ALOUD_MAX_WPM || !("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  utterance.rate = Math.min(1.35, Math.max(0.65, state.settings.wpm / 300));
+  utterance.rate = Math.min(1, Math.max(0.55, state.settings.wpm / READ_ALOUD_MAX_WPM));
   window.speechSynthesis.speak(utterance);
 }
 
@@ -162,6 +187,94 @@ function escapeForDisplay(value) {
   const div = document.createElement("div");
   div.textContent = value;
   return div.innerHTML;
+}
+
+function getWordCount(text) {
+  return String(text || "").match(/\b[\w'-]+\b/g)?.length || 0;
+}
+
+function formatGrade(grade) {
+  return grade === "K" ? "Kindergarten" : `Grade ${grade}`;
+}
+
+function getBenchmarkForGrade(grade) {
+  return GradeBenchmarks.GRADE_BENCHMARKS.find((benchmark) => benchmark.grade === grade);
+}
+
+function describeMetric(value, mean, stdDev) {
+  const delta = value - mean;
+  const zScore = stdDev ? delta / stdDev : 0;
+  const absZ = Math.abs(zScore);
+  const level = zScore < -1 ? "below" : zScore > 1 ? "above" : "near";
+  const distance = absZ < 0.25 ? "within the average band" : `${absZ.toFixed(1)} standard deviations ${delta < 0 ? "below" : "above"} the mean`;
+
+  return { delta, zScore, level, distance };
+}
+
+function comparisonClass(level) {
+  if (level === "above") return "good";
+  if (level === "below") return "needs-work";
+  return "steady";
+}
+
+function createMetricCard(label, value, mean, stdDev, unit) {
+  const result = describeMetric(value, mean, stdDev);
+  const article = result.level === "near" ? "Near average" : result.level === "above" ? "Above average" : "Below average";
+  return `
+    <div class="metric-card ${comparisonClass(result.level)}">
+      <span>${label}</span>
+      <strong>${Math.round(value).toLocaleString()} ${unit}</strong>
+      <small>${article}: ${result.distance}. Grade mean is ${Math.round(mean).toLocaleString()} ${unit}; SD is ${Math.round(stdDev).toLocaleString()}.</small>
+    </div>
+  `;
+}
+
+function renderComparisonReport(seconds) {
+  if (!state.settings.comparisonEnabled) {
+    elements.comparisonPanel.innerHTML = "";
+    elements.completionSummary.textContent = `You finished ${state.chunks.length} phrase chunks in ${seconds} seconds.`;
+    return;
+  }
+
+  const benchmark = getBenchmarkForGrade(state.settings.grade);
+  if (!benchmark || !state.textStats) {
+    elements.comparisonPanel.innerHTML = "";
+    return;
+  }
+
+  const speed = describeMetric(state.settings.wpm, benchmark.readingSpeedMean, benchmark.readingSpeedStdDev);
+  const complexity = describeMetric(state.textStats.estimatedLexile, benchmark.lexileMean, benchmark.lexileStdDev);
+  const vocabulary = describeMetric(state.textStats.estimatedVocabularySize, benchmark.vocabularyMean, benchmark.vocabularyStdDev);
+  const suggestions = GradeBenchmarks.READING_SUGGESTIONS[state.settings.grade] || [];
+  const needsSpeed = speed.level === "below";
+  const needsComplexity = complexity.level === "below" || vocabulary.level === "below";
+  const strengths = [speed, complexity, vocabulary].filter((item) => item.level !== "below").length;
+  const headline = strengths === 3
+    ? "Great work. This reading was at or above the grade benchmark."
+    : "Keep going. This shows exactly what to practice next.";
+  const guidance = [
+    needsSpeed ? "Build speed with short daily rereads, aiming for smooth phrasing before raising the WPM setting." : "Your pace is in a healthy range for this grade.",
+    needsComplexity ? "Grow vocabulary complexity by reading slightly harder passages and pausing to define unfamiliar words." : "The vocabulary and text complexity are matching or stretching the grade benchmark."
+  ];
+
+  elements.completionSummary.textContent = `You finished ${state.textStats.wordCount} words in ${seconds} seconds. Your selected reader pace was ${state.settings.wpm} WPM.`;
+  elements.comparisonPanel.innerHTML = `
+    <h3>${headline}</h3>
+    <p>Compared with ${formatGrade(state.settings.grade)} benchmarks from the statistical analysis, using standard deviations to avoid overreacting to small differences.</p>
+    <div class="metric-grid">
+      ${createMetricCard("Selected reading speed", state.settings.wpm, benchmark.readingSpeedMean, benchmark.readingSpeedStdDev, "WPM")}
+      ${createMetricCard("Vocabulary complexity", state.textStats.estimatedVocabularySize, benchmark.vocabularyMean, benchmark.vocabularyStdDev, "est. words")}
+      ${createMetricCard("Text complexity", state.textStats.estimatedLexile, benchmark.lexileMean, benchmark.lexileStdDev, "Lexile")}
+    </div>
+    <div class="advice-box">
+      <h4>Advice</h4>
+      <p>${guidance.join(" ")}</p>
+    </div>
+    <div class="advice-box">
+      <h4>Age-appropriate reading ideas</h4>
+      <ul>${suggestions.map((item) => `<li>${escapeForDisplay(item)}</li>`).join("")}</ul>
+    </div>
+  `;
 }
 
 function setScanStatus(message, isError = false) {
@@ -321,7 +434,8 @@ function completeSession() {
   pause();
   state.completedAt = Date.now();
   const seconds = Math.max(1, Math.round((state.completedAt - state.startedAt) / 1000));
-  elements.completionSummary.textContent = `You finished ${state.chunks.length} phrase chunks in ${seconds} seconds.`;
+  state.actualWpm = Math.round((getWordCount(state.rawText) / seconds) * 60);
+  renderComparisonReport(seconds);
   showView("completion");
 }
 
@@ -338,6 +452,8 @@ function startSession() {
     chunkSize: state.settings.chunkSize,
     wpm: state.settings.wpm
   });
+  state.rawText = rawText;
+  state.textStats = ReaderCore.estimateTextComplexity(rawText);
 
   if (!state.chunks.length) {
     elements.sourceText.focus();
@@ -447,11 +563,13 @@ function bindEvents() {
     applySettings();
   });
 
+  elements.gradeInput.addEventListener("change", syncSettingsFromControls);
+
   document.querySelectorAll("input[name='theme'], input[name='chunkSize']").forEach((input) => {
     input.addEventListener("change", syncSettingsFromControls);
   });
 
-  [elements.boldingInput, elements.emojiInput, elements.dyslexiaInput, elements.readAloudInput].forEach((input) => {
+  [elements.boldingInput, elements.emojiInput, elements.comparisonInput, elements.dyslexiaInput, elements.readAloudInput].forEach((input) => {
     input.addEventListener("change", syncSettingsFromControls);
   });
 

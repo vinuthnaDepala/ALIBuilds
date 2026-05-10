@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const {
   chunkSentence,
   emphasizeText,
+  estimateTextComplexity,
   findCuratedEmoji,
   processText,
   splitIntoSentences
@@ -50,4 +51,15 @@ test("processText returns PRD-shaped chunks", () => {
   assert.equal(chunks[0].sentenceIndex, 0);
   assert.ok(chunks[0].emphasizedHtml.includes("<strong>"));
   assert.ok(chunks[0].estimatedMs >= 700);
+});
+
+test("estimates text complexity for grade comparisons", () => {
+  const stats = estimateTextComplexity(
+    "Photosynthesis transforms sunlight into chemical energy. Chlorophyll captures light inside plant cells."
+  );
+
+  assert.equal(stats.wordCount, 12);
+  assert.ok(stats.uniqueWordCount >= 10);
+  assert.ok(stats.estimatedLexile > 0);
+  assert.ok(stats.estimatedVocabularySize > 0);
 });

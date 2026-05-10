@@ -55,6 +55,7 @@ body.dyslexia-font {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
 }
@@ -298,6 +299,16 @@ input[type="range"] {
   width: 100%;
 }
 
+select {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  color: var(--text);
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
 fieldset {
   min-width: 0;
   margin: 0;
@@ -460,6 +471,81 @@ legend {
   color: var(--muted);
 }
 
+.comparison-panel {
+  display: grid;
+  gap: 16px;
+  margin: 22px 0 4px;
+  text-align: left;
+}
+
+.comparison-panel:empty {
+  display: none;
+}
+
+.comparison-panel h3,
+.comparison-panel h4,
+.comparison-panel p {
+  margin: 0;
+}
+
+.comparison-panel h3 {
+  font-size: 1.35rem;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.metric-card,
+.advice-box {
+  background: var(--surface-strong);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.metric-card {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.metric-card span,
+.metric-card small {
+  color: var(--muted);
+}
+
+.metric-card strong {
+  font-size: 1.35rem;
+}
+
+.metric-card.good {
+  border-color: #2e7d32;
+}
+
+.metric-card.needs-work {
+  border-color: #b42318;
+}
+
+.metric-card.steady {
+  border-color: var(--accent);
+}
+
+.advice-box {
+  padding: 16px;
+}
+
+.advice-box h4 {
+  margin-bottom: 8px;
+}
+
+.advice-box ul {
+  margin: 0;
+  padding-left: 20px;
+  color: var(--muted);
+}
+
 @media (max-width: 860px) {
   .app-shell {
     width: min(100% - 20px, 680px);
@@ -492,6 +578,10 @@ legend {
 
   .reader {
     min-height: calc(100vh - 20px);
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
   }
 
   .focus-stage {
