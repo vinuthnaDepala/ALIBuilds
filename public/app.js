@@ -26,6 +26,7 @@ const state = {
 };
 
 const sampleText = "The Magna Carta was signed in 1215 after English nobles challenged the king's power. It mattered because it suggested that even rulers should follow the law. Later, people used its ideas to argue for rights, fair trials, and limits on government authority.";
+const defaultText = "Photosynthesis is the process plants use to make food from sunlight, water, and carbon dioxide. The plant captures energy from the sun and changes it into sugar. This matters because plants provide food and oxygen for many living things on Earth.";
 const READ_ALOUD_MAX_WPM = 190;
 
 const elements = {
@@ -33,6 +34,9 @@ const elements = {
   readerView: document.querySelector("#readerView"),
   completionView: document.querySelector("#completionView"),
   sourceText: document.querySelector("#sourceText"),
+  scanTextButton: document.querySelector("#scanTextButton"),
+  photoInput: document.querySelector("#photoInput"),
+  scanStatus: document.querySelector("#scanStatus"),
   startButton: document.querySelector("#startButton"),
   sampleButton: document.querySelector("#sampleButton"),
   editButton: document.querySelector("#editButton"),
@@ -514,7 +518,101 @@ async function fetchEmoji(keyword) {
   }
 }
 
+function prepareForScanText() {
+  if (elements.sourceText.value.trim() === defaultText) {
+    elements.sourceText.value = "";
+  }
+
+  elements.sourceText.focus();
+  const cursorPosition = elements.sourceText.value.length;
+  elements.sourceText.setSelectionRange(cursorPosition, cursorPosition);
+  elements.scanStatus.textContent = "If iOS shows Scan Text, use it here. If not, tap Take Photo.";
+}
+
+async function recognizePhoto(file) {
+  if (!file) return;
+
+  if (!window.Tesseract) {
+    elements.scanStatus.textContent = "OCR could not load. Check the phone internet connection and refresh.";
+    return;
+  }
+
+  elements.scanStatus.textContent = "Reading photo text...";
+  elements.startButton.disabled = true;
+  elements.sampleButton.disabled = true;
+
+  try {
+    const preparedImage = await prepareImageForOcr(file);
+    const result = await Tesseract.recognize(preparedImage, "eng", {
+      logger(message) {
+        if (message.status === "recognizing text") {
+          elements.scanStatus.textContent = `Reading photo text ${Math.round(message.progress * 100)}%`;
+        }
+      },
+      tessedit_pageseg_mode: "6",
+      preserve_interword_spaces: "1"
+    });
+
+    const text = result.data.text.trim().replace(/\n{3,}/g, "\n\n");
+    if (!text) {
+      elements.scanStatus.textContent = "No readable text found. Try a flatter, brighter photo.";
+      return;
+    }
+
+    elements.sourceText.value = text;
+    elements.scanStatus.textContent = "Text captured. Starting reader...";
+    startSession();
+  } catch (error) {
+    elements.scanStatus.textContent = "Could not read that photo. Try again with better lighting.";
+  } finally {
+    elements.startButton.disabled = false;
+    elements.sampleButton.disabled = false;
+    elements.photoInput.value = "";
+  }
+}
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = URL.createObjectURL(file);
+  });
+}
+
+async function prepareImageForOcr(file) {
+  const image = await loadImage(file);
+  const maxWidth = 2200;
+  const scale = Math.min(1, maxWidth / image.naturalWidth);
+  const width = Math.round(image.naturalWidth * scale);
+  const height = Math.round(image.naturalHeight * scale);
+  const canvas = document.createElement("canvas");
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+
+  canvas.width = width;
+  canvas.height = height;
+  context.drawImage(image, 0, 0, width, height);
+  URL.revokeObjectURL(image.src);
+
+  const imageData = context.getImageData(0, 0, width, height);
+  const data = imageData.data;
+
+  for (let index = 0; index < data.length; index += 4) {
+    const gray = data[index] * 0.299 + data[index + 1] * 0.587 + data[index + 2] * 0.114;
+    const contrasted = Math.max(0, Math.min(255, (gray - 128) * 1.65 + 128));
+    const value = contrasted > 165 ? 255 : contrasted < 95 ? 0 : contrasted;
+    data[index] = value;
+    data[index + 1] = value;
+    data[index + 2] = value;
+  }
+
+  context.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
 function bindEvents() {
+  elements.scanTextButton.addEventListener("click", prepareForScanText);
+  elements.photoInput.addEventListener("change", () => recognizePhoto(elements.photoInput.files[0]));
   elements.startButton.addEventListener("click", startSession);
   elements.cameraButton.addEventListener("click", openCamera);
   elements.closeCameraButton.addEventListener("click", closeCamera);
@@ -607,4 +705,5 @@ function bindEvents() {
 }
 
 bindEvents();
+elements.sourceText.value = defaultText;
 applySettings();

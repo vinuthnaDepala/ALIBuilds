@@ -157,6 +157,22 @@ legend {
   font-weight: 700;
 }
 
+.field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.field-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.capture-input {
+  display: none;
+}
+
 textarea {
   width: 100%;
   min-height: 390px;
@@ -167,7 +183,12 @@ textarea {
   background: var(--surface-strong);
   border: 1px solid var(--line);
   border-radius: 8px;
+  font-size: 16px;
   line-height: 1.55;
+  touch-action: manipulation;
+  -webkit-appearance: none;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .actions-row {
@@ -245,6 +266,7 @@ textarea {
 
 .primary-button,
 .secondary-button,
+.scan-button,
 .play-button,
 .icon-button {
   min-height: 44px;
@@ -260,6 +282,7 @@ textarea {
 }
 
 .secondary-button,
+.scan-button,
 .icon-button {
   color: var(--text);
   background: var(--surface-strong);
@@ -268,8 +291,25 @@ textarea {
 
 .primary-button,
 .secondary-button,
+.scan-button,
 .play-button {
   padding: 0 18px;
+}
+
+.scan-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: var(--accent-strong);
+}
+
+.scan-status {
+  min-height: 22px;
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .icon-button {
