@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Focus Reader</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace" id="setupView" aria-label="Reading setup">
+        <div class="input-panel">
+          <div class="brand-row">
+            <div>
+              <p class="eyebrow">Focus Reader</p>
+              <h1>Paste or scan text. Read it one phrase at a time.</h1>
+            </div>
+            <span class="status-pill" id="emojiStatus">Emoji cues ready</span>
+          </div>
+
+          <label class="field-label" for="sourceText">Text to read</label>
+          <textarea id="sourceText" spellcheck="true">Photosynthesis is the process plants use to make food from sunlight, water, and carbon dioxide. The plant captures energy from the sun and changes it into sugar. This matters because plants provide food and oxygen for many living things on Earth.</textarea>
+
+          <div class="scan-panel" aria-label="Scan a physical document">
+            <div class="scan-copy">
+              <span class="field-label">Scan a document</span>
+              <span id="scanStatus">Use a camera or upload a clear photo.</span>
+            </div>
+            <div class="scan-actions">
+              <button class="secondary-button" id="cameraButton" type="button">Open Camera</button>
+              <label class="secondary-button file-button" for="imageInput">Upload Photo</label>
+              <input id="imageInput" type="file" accept="image/*">
+            </div>
+            <div class="camera-box hidden" id="cameraBox">
+              <video id="cameraPreview" autoplay playsinline muted></video>
+              <div class="scan-actions">
+                <button class="primary-button" id="captureButton" type="button">Scan &amp; Read</button>
+                <button class="secondary-button" id="closeCameraButton" type="button">Close Camera</button>
+              </div>
+            </div>
+            <canvas id="scanCanvas" class="hidden"></canvas>
+          </div>
+
+          <div class="actions-row">
+            <button class="primary-button" id="startButton">Start Reading</button>
+            <button class="secondary-button" id="sampleButton">Load Sample</button>
+          </div>
+        </div>
+
+        <aside class="settings-panel" aria-label="Reader settings">
+          <h2>Settings</h2>
+          <div class="control-stack">
+            <label>
+              <span>Speed</span>
+              <output id="wpmOutput">300 WPM</output>
+              <input id="wpmInput" type="range" min="100" max="700" step="25" value="300">
+            </label>
+
+            <label>
+              <span>Font size</span>
+              <output id="fontOutput">56 px</output>
+              <input id="fontInput" type="range" min="32" max="86" step="2" value="56">
+            </label>
+
+            <fieldset id="comparisonSettings">
+              <legend>Grade comparison</legend>
+              <label class="select-field" for="gradeInput">
+                <span>Reader grade level</span>
+                <select id="gradeInput">
+                  <option value="K">Kindergarten</option>
+                  <option value="1">Grade 1</option>
+                  <option value="2">Grade 2</option>
+                  <option value="3">Grade 3</option>
+                  <option value="4">Grade 4</option>
+                  <option value="5" selected>Grade 5</option>
+                  <option value="6">Grade 6</option>
+                  <option value="7">Grade 7</option>
+                  <option value="8">Grade 8</option>
+                  <option value="9">Grade 9</option>
+                  <option value="10">Grade 10</option>
+                  <option value="11">Grade 11</option>
+                  <option value="12">Grade 12</option>
+                </select>
+              </label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Chunk size</legend>
+              <div class="segmented">
+                <label><input type="radio" name="chunkSize" value="small">Small</label>
+                <label><input type="radio" name="chunkSize" value="medium" checked>Medium</label>
+                <label><input type="radio" name="chunkSize" value="large">Large</label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>Display</legend>
+              <label class="toggle"><input id="boldingInput" type="checkbox" checked><span>Focus bolding</span></label>
+              <label class="toggle"><input id="emojiInput" type="checkbox" checked><span>Emoji cues</span></label>
+              <label class="toggle"><input id="comparisonInput" type="checkbox" checked><span>Reading comparison</span></label>
+              <label class="toggle"><input id="dyslexiaInput" type="checkbox"><span>Dyslexia-friendly font</span></label>
+              <label class="toggle"><input id="readAloudInput" type="checkbox"><span>Read aloud up to 190 WPM</span></label>
+              <label class="toggle disabled"><input id="simplifyInput" type="checkbox" disabled><span>Simplify text</span></label>
+            </fieldset>
+
+            <fieldset>
+              <legend>Theme</legend>
+              <div class="segmented">
+                <label><input type="radio" name="theme" value="light" checked>Light</label>
+                <label><input type="radio" name="theme" value="dark">Dark</label>
+                <label><input type="radio" name="theme" value="highContrast">Contrast</label>
+              </div>
+            </fieldset>
+          </div>
+        </aside>
+      </section>
+
+      <section class="reader hidden" id="readerView" aria-label="Focused reader">
+        <div class="reader-topbar">
+          <button class="secondary-button" id="editButton">Edit Text</button>
+          <div class="progress-copy">
+            <span id="chunkCounter">0 / 0</span>
+            <span id="timeRemaining">0 min left</span>
+          </div>
+        </div>
+
+        <div class="progress-track" aria-hidden="true">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+
+        <div class="focus-stage" id="focusStage">
+          <div class="emoji-cue" id="emojiCue" aria-label="Visual cue"></div>
+          <div class="phrase" id="phraseText"></div>
+        </div>
+
+        <div class="reader-controls" aria-label="Reader controls">
+          <button id="prevButton" class="icon-button" aria-label="Previous chunk">&lsaquo;</button>
+          <button id="playButton" class="play-button">Pause</button>
+          <button id="nextButton" class="icon-button" aria-label="Next chunk">&rsaquo;</button>
+        </div>
+
+        <div class="inline-settings">
+          <label>
+            <span>Speed</span>
+            <input id="readerWpmInput" type="range" min="100" max="700" step="25" value="300">
+          </label>
+          <label class="toggle"><input id="readerEmojiInput" type="checkbox" checked><span>Emoji cues</span></label>
+          <label class="toggle"><input id="readerBoldingInput" type="checkbox" checked><span>Focus bolding</span></label>
+        </div>
+      </section>
+
+      <section class="completion hidden" id="completionView" aria-live="polite">
+        <h2>Reading complete</h2>
+        <p id="completionSummary">Nice work. You finished the text.</p>
+        <div class="comparison-panel" id="comparisonPanel" aria-label="Grade-level reading comparison"></div>
+        <div class="actions-row centered">
+          <button class="primary-button" id="restartButton">Read Again</button>
+          <button class="secondary-button" id="newTextButton">New Text</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="reader-core.js"></script>
+    <script src="grade-benchmarks.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>
