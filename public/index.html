@@ -18,8 +18,25 @@
             <span class="status-pill" id="emojiStatus">Emoji cues ready</span>
           </div>
 
-          <label class="field-label" for="sourceText">Text to read</label>
-          <textarea id="sourceText" spellcheck="true">Photosynthesis is the process plants use to make food from sunlight, water, and carbon dioxide. The plant captures energy from the sun and changes it into sugar. This matters because plants provide food and oxygen for many living things on Earth.</textarea>
+          <div class="field-header">
+            <label class="field-label" for="sourceText">Text to read</label>
+            <div class="field-actions">
+              <label class="scan-button" for="photoInput">Take Photo</label>
+              <button class="scan-button" id="scanTextButton" type="button">Scan Text</button>
+            </div>
+          </div>
+          <input id="photoInput" class="capture-input" type="file" accept="image/*" capture="environment">
+          <textarea
+            id="sourceText"
+            autocomplete="off"
+            autocapitalize="sentences"
+            autocorrect="on"
+            enterkeyhint="done"
+            inputmode="text"
+            placeholder="Tap Scan Text, then use the camera text scanner from the iPhone keyboard."
+            spellcheck="true"
+          ></textarea>
+          <p class="scan-status" id="scanStatus" aria-live="polite"></p>
 
           <div class="actions-row">
             <button class="primary-button" id="startButton">Start Reading</button>
@@ -117,6 +134,7 @@
     </main>
 
     <script src="reader-core.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

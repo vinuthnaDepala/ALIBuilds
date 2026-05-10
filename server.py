@@ -81,8 +81,14 @@ class FocusReaderHandler(SimpleHTTPRequestHandler):
         self.send_json(200, {"source": "api", "results": results})
 
 
+# if __name__ == "__main__":
+#     server = ThreadingHTTPServer(("127.0.0.1", PORT), FocusReaderHandler)
+#     print(f"Focused Speed Reader running at http://localhost:{PORT}")
+#     print("Set EMOJI_API_KEY to enable the Emoji API proxy.")
+#     server.serve_forever()
 if __name__ == "__main__":
-    server = ThreadingHTTPServer(("127.0.0.1", PORT), FocusReaderHandler)
-    print(f"Focused Speed Reader running at http://localhost:{PORT}")
+    # "0.0.0.0" allows the iPhone to see the server through the hotspot
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), FocusReaderHandler)
+    print(f"Focused Speed Reader running at http://0.0.0.0:{PORT}")
     print("Set EMOJI_API_KEY to enable the Emoji API proxy.")
     server.serve_forever()
