@@ -39,6 +39,18 @@ test("finds curated emojis for student concepts", () => {
   assert.ok(result.emoji);
 });
 
+test("maps broader phrase concepts to emoji cues", () => {
+  assert.equal(findCuratedEmoji("The chart compares average rainfall by region.").label, "data");
+  assert.equal(findCuratedEmoji("The character explains the problem in the story.").label, "warning");
+  assert.equal(findCuratedEmoji("Finally, the team chooses a better plan.").label, "group");
+});
+
+test("falls back to a key idea cue for unmatched phrases", () => {
+  const result = findCuratedEmoji("Curious learners examine unusual vocabulary.");
+  assert.equal(result.label, "key idea");
+  assert.equal(result.emoji, "📌");
+});
+
 test("processText returns PRD-shaped chunks", () => {
   const chunks = processText({
     rawText: "History helps people understand government and law.",

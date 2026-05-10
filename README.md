@@ -40,7 +40,7 @@ npm start
 - Adjustable WPM and chunk size
 - Grade-level comparison against K-12 reading speed, vocabulary, and Lexile benchmarks
 - Focus bolding inspired by speed-reading tools
-- Emoji cues with API proxy plus fallback dictionary
+- Emoji cues with API proxy plus expanded fallback dictionary for most phrase chunks
 - Dark mode, high contrast, font sizing, and dyslexia-friendly font toggle
 - Read aloud up to 190 WPM
 - Pause, resume, previous, next, keyboard controls, and completion summary

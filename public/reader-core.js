@@ -83,6 +83,46 @@
     { emoji: "🧠", label: "mind", terms: ["brain", "mind", "memory", "focus", "attention", "comprehend"] }
   ];
 
+  const EXTRA_EMOJIS = [
+    { emoji: "🏠", label: "home", terms: ["home", "house", "room", "family", "parent", "parents", "mother", "father", "sibling"] },
+    { emoji: "👥", label: "group", terms: ["group", "team", "together", "classmates", "members", "society", "public"] },
+    { emoji: "🧭", label: "direction", terms: ["direction", "path", "route", "journey", "travel", "toward", "across", "around"] },
+    { emoji: "🗺️", label: "place", terms: ["place", "map", "region", "area", "city", "town", "state", "location"] },
+    { emoji: "🌊", label: "water", terms: ["water", "river", "ocean", "sea", "lake", "rain", "storm", "flood"] },
+    { emoji: "☀️", label: "sun", terms: ["sun", "sunlight", "light", "day", "warm", "bright", "solar"] },
+    { emoji: "🌙", label: "night", terms: ["night", "dark", "moon", "sleep", "dream", "evening"] },
+    { emoji: "🌦️", label: "weather", terms: ["weather", "cloud", "clouds", "wind", "temperature", "climate", "season"] },
+    { emoji: "🐾", label: "animal", terms: ["animal", "animals", "dog", "cat", "bird", "fish", "mammal", "species"] },
+    { emoji: "🦠", label: "microbe", terms: ["virus", "bacteria", "germ", "microbe", "disease", "infection", "health"] },
+    { emoji: "🩺", label: "health", terms: ["doctor", "nurse", "medicine", "medical", "healthy", "illness", "care"] },
+    { emoji: "🔢", label: "numbers", terms: ["number", "numbers", "math", "add", "subtract", "multiply", "divide", "percent"] },
+    { emoji: "📊", label: "data", terms: ["chart", "graph", "data", "statistics", "average", "compare", "measure", "analysis"] },
+    { emoji: "🔎", label: "search", terms: ["search", "look", "find", "discover", "investigate", "explore", "evidence"] },
+    { emoji: "🧪", label: "experiment", terms: ["experiment", "test", "observe", "hypothesis", "lab", "sample", "result"] },
+    { emoji: "⚙️", label: "machine", terms: ["machine", "tool", "engine", "device", "technology", "computer", "system"] },
+    { emoji: "🏗️", label: "build", terms: ["build", "built", "construct", "structure", "design", "create", "project"] },
+    { emoji: "🎨", label: "art", terms: ["art", "artist", "paint", "draw", "music", "creative", "color", "image"] },
+    { emoji: "🎭", label: "story", terms: ["story", "character", "plot", "scene", "drama", "fiction", "narrator"] },
+    { emoji: "💬", label: "speech", terms: ["say", "said", "speak", "talk", "tell", "conversation", "voice", "explain"] },
+    { emoji: "✍️", label: "writing", terms: ["write", "writing", "sentence", "paragraph", "essay", "author", "draft"] },
+    { emoji: "✅", label: "success", terms: ["success", "answer", "correct", "solve", "finish", "complete", "achieve"] },
+    { emoji: "🎯", label: "goal", terms: ["goal", "target", "purpose", "plan", "aim", "strategy", "mission"] },
+    { emoji: "🚧", label: "challenge", terms: ["challenge", "difficult", "hard", "struggle", "barrier", "obstacle", "conflict"] },
+    { emoji: "🔁", label: "cycle", terms: ["cycle", "repeat", "again", "return", "pattern", "process", "sequence"] },
+    { emoji: "⬆️", label: "increase", terms: ["increase", "rise", "higher", "more", "greater", "gain", "expand"] },
+    { emoji: "⬇️", label: "decrease", terms: ["decrease", "fall", "lower", "less", "reduce", "decline", "drop"] },
+    { emoji: "⚖️", label: "compare", terms: ["compare", "contrast", "difference", "similar", "equal", "balance", "between"] },
+    { emoji: "🔗", label: "connection", terms: ["connect", "connection", "relationship", "link", "cause", "effect", "therefore"] },
+    { emoji: "🧩", label: "part", terms: ["part", "piece", "section", "detail", "element", "component", "example"] },
+    { emoji: "🚀", label: "progress", terms: ["progress", "advance", "improvement", "fast", "speed", "quick", "accelerate"] },
+    { emoji: "🛡️", label: "protection", terms: ["protect", "safe", "safety", "defend", "secure", "guard", "prevent"] },
+    { emoji: "🧑‍🏫", label: "teaching", terms: ["teach", "teaches", "teaching", "instruct", "practice", "skill", "study"] },
+    { emoji: "🧑‍⚖️", label: "decision", terms: ["decide", "decision", "choose", "choice", "option", "reason", "judgment"] },
+    { emoji: "📌", label: "important detail", terms: ["important", "main", "key", "central", "major", "significant", "note"] }
+  ];
+
+  const EMOJI_ENTRIES = CURATED_EMOJIS.concat(EXTRA_EMOJIS);
+
   function escapeHtml(value) {
     return String(value)
       .replace(/&/g, "&amp;")
@@ -233,11 +273,19 @@
 
   function findCuratedEmoji(text) {
     const keywords = extractKeywords(text);
-    for (const entry of CURATED_EMOJIS) {
+    for (const entry of EMOJI_ENTRIES) {
       if (entry.terms.some((term) => keywords.includes(term))) {
         return { emoji: entry.emoji, label: entry.label, keyword: entry.terms.find((term) => keywords.includes(term)) };
       }
     }
+
+    if (/\?/.test(text)) return { emoji: "❓", label: "question", keyword: "question" };
+    if (/\b(first|second|third|next|then|finally|last)\b/i.test(text)) return { emoji: "🔁", label: "sequence", keyword: "sequence" };
+    if (/\b(can|could|may|might|should|would|will)\b/i.test(text)) return { emoji: "💡", label: "possibility", keyword: "possibility" };
+    if (/\b(good|great|best|better|important|helpful)\b/i.test(text)) return { emoji: "✅", label: "positive idea", keyword: "positive" };
+    if (/\b(bad|worse|worst|problem|issue|fail|failed)\b/i.test(text)) return { emoji: "⚠️", label: "problem", keyword: "problem" };
+    if (keywords.length) return { emoji: "📌", label: "key idea", keyword: keywords[0] };
+
     return null;
   }
 
