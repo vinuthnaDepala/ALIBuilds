@@ -83,6 +83,6 @@ class FocusReaderHandler(SimpleHTTPRequestHandler):
 
 if __name__ == "__main__":
     server = ThreadingHTTPServer(("127.0.0.1", PORT), FocusReaderHandler)
-    print(f"Focused Speed Reader running at http://localhost:{PORT}")
+    print(f"LitSync running at http://localhost:{PORT}")
     print("Set EMOJI_API_KEY to enable the Emoji API proxy.")
     server.serve_forever()
