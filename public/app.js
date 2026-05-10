@@ -15,7 +15,10 @@ const state = {
     readAloud: false,
     theme: "light"
   },
-  emojiApiCache: new Map()
+  emojiApiCache: new Map(),
+  capturePollTimer: null,
+  latestCaptureId: null,
+  isExtracting: false
 };
 
 const sampleText = "The Magna Carta was signed in 1215 after English nobles challenged the king's power. It mattered because it suggested that even rulers should follow the law. Later, people used its ideas to argue for rights, fair trials, and limits on government authority.";
@@ -51,7 +54,14 @@ const elements = {
   nextButton: document.querySelector("#nextButton"),
   emojiStatus: document.querySelector("#emojiStatus"),
   focusStage: document.querySelector("#focusStage"),
-  completionSummary: document.querySelector("#completionSummary")
+  completionSummary: document.querySelector("#completionSummary"),
+  phoneUrl: document.querySelector("#phoneUrl"),
+  cameraStatus: document.querySelector("#cameraStatus"),
+  capturePreview: document.querySelector("#capturePreview"),
+  refreshCaptureButton: document.querySelector("#refreshCaptureButton"),
+  clearCaptureButton: document.querySelector("#clearCaptureButton"),
+  extractReadButton: document.querySelector("#extractReadButton"),
+  ocrStatus: document.querySelector("#ocrStatus")
 };
 
 function selectedValue(name) {
@@ -90,6 +100,8 @@ function showView(view) {
   elements.setupView.classList.toggle("hidden", view !== "setup");
   elements.readerView.classList.toggle("hidden", view !== "reader");
   elements.completionView.classList.toggle("hidden", view !== "completion");
+  if (view === "setup") startCapturePolling();
+  else stopCapturePolling();
 }
 
 function clearTimer() {
@@ -273,6 +285,146 @@ async function fetchEmoji(keyword) {
   }
 }
 
+function setCameraStatus(message, tone = "neutral") {
+  if (!elements.cameraStatus) return;
+  elements.cameraStatus.textContent = message;
+  elements.cameraStatus.dataset.tone = tone;
+}
+
+function setOcrStatus(message, tone = "neutral") {
+  if (!elements.ocrStatus) return;
+  elements.ocrStatus.textContent = message;
+  elements.ocrStatus.dataset.tone = tone;
+}
+
+function updateExtractButton(hasCapture) {
+  if (!elements.extractReadButton) return;
+  elements.extractReadButton.classList.toggle("hidden", !hasCapture);
+  elements.extractReadButton.disabled = !hasCapture || state.isExtracting;
+}
+
+function renderCapture(capture) {
+  if (!elements.capturePreview) return;
+
+  if (!capture) {
+    state.latestCaptureId = null;
+    elements.capturePreview.innerHTML = "<span>No phone capture yet</span>";
+    setCameraStatus("Waiting", "neutral");
+    setOcrStatus("Waiting for a phone capture.", "neutral");
+    updateExtractButton(false);
+    return;
+  }
+
+  const isNewCapture = capture.id !== state.latestCaptureId;
+  state.latestCaptureId = capture.id;
+  const received = new Date(capture.receivedAt).toLocaleTimeString([], {
+    hour: "numeric",
+    minute: "2-digit",
+    second: "2-digit"
+  });
+  const sizeKb = capture.size ? `${Math.round(capture.size / 1024)} KB` : "image";
+
+  elements.capturePreview.textContent = "";
+  const img = document.createElement("img");
+  img.src = capture.image;
+  img.alt = "Latest phone capture";
+
+  const meta = document.createElement("div");
+  meta.className = "capture-meta";
+  const title = document.createElement("strong");
+  title.textContent = `Received ${received}`;
+  const details = document.createElement("span");
+  details.textContent = `${sizeKb} from ${capture.client || "phone"}`;
+  meta.append(title, details);
+  elements.capturePreview.append(img, meta);
+  setCameraStatus("Connected", "success");
+  if (isNewCapture) setOcrStatus("Ready to extract text.", "ready");
+  updateExtractButton(true);
+}
+
+async function refreshCapture() {
+  if (!elements.capturePreview) return;
+  try {
+    const response = await fetch("api/capture/latest");
+    if (!response.ok) throw new Error("Could not load capture.");
+    const data = await response.json();
+    if (data.capture?.id !== state.latestCaptureId || !data.capture) {
+      renderCapture(data.capture);
+    }
+  } catch (error) {
+    setCameraStatus("Offline", "error");
+  }
+}
+
+async function clearCapture() {
+  try {
+    await fetch("api/capture/latest", { method: "DELETE" });
+  } catch (error) {
+    // The UI can still clear locally if the server is unavailable.
+  }
+  renderCapture(null);
+}
+
+async function extractAndReadCapture() {
+  if (!state.latestCaptureId || state.isExtracting) return;
+  state.isExtracting = true;
+  updateExtractButton(true);
+  setOcrStatus("Extracting text from image...", "neutral");
+
+  try {
+    const response = await fetch("api/capture/extract", { method: "POST" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data.error || "Could not extract text.");
+    }
+
+    const text = String(data.text || "").trim();
+    if (!text) {
+      throw new Error("No readable text was found in the image.");
+    }
+
+    elements.sourceText.value = text;
+    setOcrStatus(`Extracted text with ${data.engine || "pytesseract"}. Starting reader...`, "success");
+    state.isExtracting = false;
+    updateExtractButton(true);
+    startSession();
+  } catch (error) {
+    state.isExtracting = false;
+    updateExtractButton(true);
+    setOcrStatus(error.message || "Could not extract text.", "error");
+  }
+}
+
+function startCapturePolling() {
+  if (state.capturePollTimer) return;
+  refreshCapture();
+  state.capturePollTimer = setInterval(refreshCapture, 2000);
+}
+
+function stopCapturePolling() {
+  if (!state.capturePollTimer) return;
+  clearInterval(state.capturePollTimer);
+  state.capturePollTimer = null;
+}
+
+async function setupPhoneConnection() {
+  if (!elements.phoneUrl) return;
+  let phoneUrl = new URL("phone.html", window.location.href).href;
+
+  try {
+    const response = await fetch("api/lan-info");
+    if (response.ok) {
+      const data = await response.json();
+      phoneUrl = data.phoneUrl || phoneUrl;
+    }
+  } catch (error) {
+    setCameraStatus("Local only", "neutral");
+  }
+
+  elements.phoneUrl.href = phoneUrl;
+  elements.phoneUrl.textContent = phoneUrl;
+}
+
 function bindEvents() {
   elements.startButton.addEventListener("click", startSession);
   elements.sampleButton.addEventListener("click", () => {
@@ -303,6 +455,9 @@ function bindEvents() {
     if (state.isPlaying) pause();
     else play();
   });
+  elements.refreshCaptureButton?.addEventListener("click", refreshCapture);
+  elements.clearCaptureButton?.addEventListener("click", clearCapture);
+  elements.extractReadButton?.addEventListener("click", extractAndReadCapture);
 
   elements.wpmInput.addEventListener("input", () => {
     state.settings.wpm = Number(elements.wpmInput.value);
@@ -356,3 +511,5 @@ function bindEvents() {
 
 bindEvents();
 applySettings();
+setupPhoneConnection();
+startCapturePolling();

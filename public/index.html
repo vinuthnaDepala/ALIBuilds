@@ -69,6 +69,24 @@
               </div>
             </fieldset>
           </div>
+
+          <section class="phone-panel" aria-label="Phone camera connection">
+            <div class="panel-heading">
+              <h2>Phone Camera</h2>
+              <span class="connection-dot" id="cameraStatus">Waiting</span>
+            </div>
+            <a class="phone-url" id="phoneUrl" href="phone.html" target="_blank" rel="noreferrer">phone.html</a>
+            <p class="helper-copy">Open this link on a phone connected to the same Wi-Fi.</p>
+            <div class="capture-preview" id="capturePreview">
+              <span>No phone capture yet</span>
+            </div>
+            <div class="actions-row compact-actions">
+              <button class="secondary-button" id="refreshCaptureButton" type="button">Refresh</button>
+              <button class="secondary-button" id="clearCaptureButton" type="button">Clear</button>
+            </div>
+            <button class="primary-button extract-button hidden" id="extractReadButton" type="button" disabled>Extract & Read</button>
+            <p class="ocr-status" id="ocrStatus">Waiting for a phone capture.</p>
+          </section>
         </aside>
       </section>
 

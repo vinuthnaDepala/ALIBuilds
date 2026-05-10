@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Phone Camera - Focus Reader</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="phone-shell">
+      <section class="phone-capture">
+        <p class="eyebrow">Focus Reader</p>
+        <h1>Send a camera capture</h1>
+        <p class="helper-copy">Take a photo from this phone and send it to the reading portal on your computer.</p>
+
+        <label class="file-picker">
+          <span>Take Photo</span>
+          <input id="captureInput" type="file" accept="image/*" capture="environment">
+        </label>
+
+        <div class="phone-preview" id="phonePreview">
+          <span>No photo selected</span>
+        </div>
+
+        <button class="primary-button wide-button" id="sendCaptureButton" type="button" disabled>Send to Portal</button>
+        <p class="phone-status" id="phoneStatus">Waiting for a photo.</p>
+      </section>
+    </main>
+
+    <script src="phone.js"></script>
+  </body>
+</html>
