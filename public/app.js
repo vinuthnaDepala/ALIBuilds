@@ -5,6 +5,8 @@ const state = {
   timer: null,
   startedAt: null,
   completedAt: null,
+  cameraStream: null,
+  ocrLoadPromise: null,
   settings: {
     wpm: 300,
     fontSize: 56,
@@ -41,6 +43,14 @@ const elements = {
   readerEmojiInput: document.querySelector("#readerEmojiInput"),
   dyslexiaInput: document.querySelector("#dyslexiaInput"),
   readAloudInput: document.querySelector("#readAloudInput"),
+  cameraButton: document.querySelector("#cameraButton"),
+  closeCameraButton: document.querySelector("#closeCameraButton"),
+  captureButton: document.querySelector("#captureButton"),
+  imageInput: document.querySelector("#imageInput"),
+  cameraBox: document.querySelector("#cameraBox"),
+  cameraPreview: document.querySelector("#cameraPreview"),
+  scanCanvas: document.querySelector("#scanCanvas"),
+  scanStatus: document.querySelector("#scanStatus"),
   phraseText: document.querySelector("#phraseText"),
   emojiCue: document.querySelector("#emojiCue"),
   progressFill: document.querySelector("#progressFill"),
@@ -152,6 +162,121 @@ function escapeForDisplay(value) {
   const div = document.createElement("div");
   div.textContent = value;
   return div.innerHTML;
+}
+
+function setScanStatus(message, isError = false) {
+  elements.scanStatus.textContent = message;
+  elements.scanStatus.classList.toggle("error", isError);
+}
+
+function normalizeScannedText(text) {
+  return String(text || "")
+    .replace(/-\s*\n\s*/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+function loadOcrEngine() {
+  if (window.Tesseract) return Promise.resolve(window.Tesseract);
+  if (state.ocrLoadPromise) return state.ocrLoadPromise;
+
+  state.ocrLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
+    script.async = true;
+    script.onload = () => resolve(window.Tesseract);
+    script.onerror = () => reject(new Error("OCR library failed to load."));
+    document.head.appendChild(script);
+  });
+
+  return state.ocrLoadPromise;
+}
+
+async function recognizeImage(imageSource) {
+  setScanStatus("Loading OCR...");
+  const Tesseract = await loadOcrEngine();
+  setScanStatus("Reading the document...");
+  const result = await Tesseract.recognize(imageSource, "eng", {
+    logger: (message) => {
+      if (message.status === "recognizing text") {
+        const progress = Math.round((message.progress || 0) * 100);
+        setScanStatus(`Reading the document... ${progress}%`);
+      }
+    }
+  });
+  return normalizeScannedText(result.data?.text);
+}
+
+function stopCameraStream() {
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach((track) => track.stop());
+    state.cameraStream = null;
+  }
+  elements.cameraPreview.srcObject = null;
+  elements.cameraBox.classList.add("hidden");
+}
+
+async function scanImage(imageSource) {
+  try {
+    const scannedText = await recognizeImage(imageSource);
+    if (!scannedText) {
+      setScanStatus("No words found. Try brighter light or a straighter photo.", true);
+      return;
+    }
+
+    elements.sourceText.value = scannedText;
+    stopCameraStream();
+    setScanStatus("Text scanned. Starting reader...");
+    startSession();
+  } catch (error) {
+    setScanStatus("Could not scan this image. Check your connection and try again.", true);
+  }
+}
+
+async function openCamera() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setScanStatus("Camera scanning is not supported in this browser.", true);
+    return;
+  }
+
+  try {
+    state.cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+    elements.cameraPreview.srcObject = state.cameraStream;
+    elements.cameraBox.classList.remove("hidden");
+    setScanStatus("Place the document in view, then scan.");
+  } catch (error) {
+    setScanStatus("Camera permission was blocked or unavailable.", true);
+  }
+}
+
+function closeCamera() {
+  stopCameraStream();
+  setScanStatus("Use a camera or upload a clear photo.");
+}
+
+function captureCameraImage() {
+  const video = elements.cameraPreview;
+  if (!video.videoWidth || !video.videoHeight) {
+    setScanStatus("Camera is still loading. Try again in a moment.", true);
+    return;
+  }
+
+  const canvas = elements.scanCanvas;
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext("2d").drawImage(video, 0, 0, canvas.width, canvas.height);
+  canvas.toBlob((blob) => {
+    if (!blob) {
+      setScanStatus("Could not capture the camera image.", true);
+      return;
+    }
+    scanImage(blob);
+  }, "image/png");
 }
 
 function scheduleNext() {
@@ -275,6 +400,15 @@ async function fetchEmoji(keyword) {
 
 function bindEvents() {
   elements.startButton.addEventListener("click", startSession);
+  elements.cameraButton.addEventListener("click", openCamera);
+  elements.closeCameraButton.addEventListener("click", closeCamera);
+  elements.captureButton.addEventListener("click", captureCameraImage);
+  elements.imageInput.addEventListener("change", () => {
+    const file = elements.imageInput.files?.[0];
+    if (!file) return;
+    scanImage(file);
+    elements.imageInput.value = "";
+  });
   elements.sampleButton.addEventListener("click", () => {
     elements.sourceText.value = sampleText;
     elements.sourceText.focus();

@@ -13,13 +13,33 @@
           <div class="brand-row">
             <div>
               <p class="eyebrow">Focus Reader</p>
-              <h1>Paste text. Read it one phrase at a time.</h1>
+              <h1>Paste or scan text. Read it one phrase at a time.</h1>
             </div>
             <span class="status-pill" id="emojiStatus">Emoji cues ready</span>
           </div>
 
           <label class="field-label" for="sourceText">Text to read</label>
           <textarea id="sourceText" spellcheck="true">Photosynthesis is the process plants use to make food from sunlight, water, and carbon dioxide. The plant captures energy from the sun and changes it into sugar. This matters because plants provide food and oxygen for many living things on Earth.</textarea>
+
+          <div class="scan-panel" aria-label="Scan a physical document">
+            <div class="scan-copy">
+              <span class="field-label">Scan a document</span>
+              <span id="scanStatus">Use a camera or upload a clear photo.</span>
+            </div>
+            <div class="scan-actions">
+              <button class="secondary-button" id="cameraButton" type="button">Open Camera</button>
+              <label class="secondary-button file-button" for="imageInput">Upload Photo</label>
+              <input id="imageInput" type="file" accept="image/*">
+            </div>
+            <div class="camera-box hidden" id="cameraBox">
+              <video id="cameraPreview" autoplay playsinline muted></video>
+              <div class="scan-actions">
+                <button class="primary-button" id="captureButton" type="button">Scan &amp; Read</button>
+                <button class="secondary-button" id="closeCameraButton" type="button">Close Camera</button>
+              </div>
+            </div>
+            <canvas id="scanCanvas" class="hidden"></canvas>
+          </div>
 
           <div class="actions-row">
             <button class="primary-button" id="startButton">Start Reading</button>
@@ -91,9 +111,9 @@
         </div>
 
         <div class="reader-controls" aria-label="Reader controls">
-          <button id="prevButton" class="icon-button" aria-label="Previous chunk">‹</button>
+          <button id="prevButton" class="icon-button" aria-label="Previous chunk">&lsaquo;</button>
           <button id="playButton" class="play-button">Pause</button>
-          <button id="nextButton" class="icon-button" aria-label="Next chunk">›</button>
+          <button id="nextButton" class="icon-button" aria-label="Next chunk">&rsaquo;</button>
         </div>
 
         <div class="inline-settings">

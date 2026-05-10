@@ -35,9 +35,12 @@ npm start
 ## Features
 
 - Paste text input
+- Scan a physical document with the camera or upload a document photo
 - Phrase-by-phrase focus reader
 - Adjustable WPM and chunk size
 - Focus bolding inspired by speed-reading tools
 - Emoji cues with API proxy plus fallback dictionary
 - Dark mode, high contrast, font sizing, and dyslexia-friendly font toggle
 - Pause, resume, previous, next, keyboard controls, and completion summary
+
+Document scanning uses client-side OCR in the browser. It needs camera permission for live scanning and an internet connection the first time the OCR library loads.
